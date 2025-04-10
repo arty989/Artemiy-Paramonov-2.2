@@ -5,12 +5,12 @@ import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.example.audit.dto.ActionDto;
 import com.example.audit.enums.Action;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,23 +33,34 @@ public class UserAuditService {
     "SELECT * FROM my_keyspace.user_audit WHERE user_id = ? ORDER BY event_time DESC");
   }
 
-  public void insertUserAction(UUID user_id, Action event_type, String event_details) {
+  public void insertUserAction(ActionDto action) {
     BoundStatement insertAuditBoundStmt = insertAuditPreparedStmt.bind(
-        user_id,
-        Instant.now(),
-        event_type.toString(),
-        event_details
+        action.getUserId(),
+        action.getEventTime(),
+        action.getEventType().toString(),
+        action.getEventDetails()
     );
     session.execute(insertAuditBoundStmt);
   }
 
-  public List<Row> selectUserActions(UUID user_id) {
+  public List<ActionDto> selectUserActions(UUID user_id) {
     BoundStatement selectAuditBoundStmt = selectAuditPreparedStmt.bind(
-        user_id
+      user_id
     );
 
     ResultSet resultSet = session.execute(selectAuditBoundStmt);
 
-    return resultSet.all();
+    return resultSet.all().stream()
+      .map(this::mapRowToActionDto)
+      .toList();
+  }
+
+  private ActionDto mapRowToActionDto(Row row) {
+    return ActionDto.builder()
+      .userId(row.getUuid("user_id"))
+      .eventTime(row.getInstant("event_time"))
+      .eventType(Action.valueOf(row.getString("event_type")))
+      .eventDetails(row.getString("event_details"))
+      .build();
   }
 }

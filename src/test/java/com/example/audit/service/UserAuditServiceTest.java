@@ -1,8 +1,8 @@
 package com.example.audit.service;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.servererrors.InvalidQueryException;
+import com.example.audit.dto.ActionDto;
 import com.example.audit.enums.Action;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +14,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,31 +45,28 @@ class UserAuditServiceTest {
   @Test
   void testInsertAndSelectUserAction() {
     UUID userId = UUID.randomUUID();
-    Action action = Action.INSERT;
-    String eventDetails = "Insert first row";
+    Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
-    userAuditService.insertUserAction(userId, action, eventDetails);
+    ActionDto insertActionDto = ActionDto.builder()
+      .userId(userId)
+      .eventTime(now)
+      .eventType(Action.INSERT)
+      .eventDetails("Insert first row")
+    .build();
 
-    List<Row> actions = userAuditService.selectUserActions(userId);
+    userAuditService.insertUserAction(insertActionDto);
+
+    List<ActionDto> actions = userAuditService.selectUserActions(userId);
 
     assertThat(actions).isNotNull();
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getUuid("user_id")).isEqualTo(userId);
-    assertThat(actions.get(0).getString("event_type")).isEqualTo("INSERT");
-    assertThat(actions.get(0).getString("event_details")).isEqualTo("Insert first row");
-  }
-
-  @Test
-  void testShouldFailWhenUserIdToInsertIsNull() {
-    assertThatThrownBy(() ->
-        userAuditService.insertUserAction(null, Action.INSERT, "Insert first row")
-    ).isInstanceOf(InvalidQueryException.class);
+    assertThat(actions.get(0)).isEqualTo(insertActionDto);
   }
 
   @Test
   void testShouldFailWhenUserIdToSelectIsNull() {
     assertThatThrownBy(() ->
-        userAuditService.insertUserAction(null, Action.INSERT, "Insert first row")
+        userAuditService.selectUserActions(null)
     ).isInstanceOf(InvalidQueryException.class);
   }
 
@@ -75,7 +74,7 @@ class UserAuditServiceTest {
   void testShouldReturnEmptyWhenUserIdToSelectDoesNotExist() {
     UUID userId = UUID.randomUUID();
 
-    List<Row> actions = userAuditService.selectUserActions(userId);
+    List<ActionDto> actions = userAuditService.selectUserActions(userId);
 
     assertThat(actions).isNotNull();
     assertThat(actions).isEmpty();
