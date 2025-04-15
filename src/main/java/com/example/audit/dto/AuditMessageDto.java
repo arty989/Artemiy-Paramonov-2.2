@@ -1,20 +1,26 @@
 package com.example.audit.dto;
 
 import com.example.audit.enums.Action;
+
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
+import lombok.Setter;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 @EqualsAndHashCode
-public class ActionDto {
+public class AuditMessageDto {
   @NonNull
-  private UUID userId;
+  private Long userId;
 
   @NonNull
   private Instant eventTime;
@@ -24,3 +30,4 @@ public class ActionDto {
 
   private String eventDetails;
 }
+

@@ -1,6 +1,13 @@
 spring:
   application:
     name: audit
+  kafka:
+    bootstrap-servers: localhost:29093
+    consumer:
+      group-id: audit-group
+      enable-auto-commit: true
+server:
+  port: 8090
 
 cassandra:
   host: 127.0.0.1
@@ -8,3 +15,5 @@ cassandra:
   keyspace: my_keyspace
   table: user_audit
   datacenter: datacenter1
+
+topic-to-consume-message: audit-topic

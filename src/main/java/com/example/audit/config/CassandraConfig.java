@@ -34,7 +34,7 @@ public class CassandraConfig {
   @Bean
   public CqlSession cqlSession(CqlSessionBuilder sessionBuilder) {
     InetSocketAddress address = InetSocketAddress.createUnresolved(cassandraHost, cassandraPort);
-    sessionBuilder = sessionBuilder.addContactPoint(address);
+    sessionBuilder = sessionBuilder.addContactPoint(address).withLocalDatacenter(datacenter);
     sessionBuilder.withKeyspace((CqlIdentifier) null);
 
     CqlSession session = sessionBuilder.build();
@@ -47,7 +47,7 @@ public class CassandraConfig {
 
     session.execute(String.format("""
       CREATE TABLE IF NOT EXISTS %s.%s (
-        user_id UUID,
+        user_id BIGINT,
         event_time TIMESTAMP,
         event_type TEXT,
         event_details TEXT,

@@ -5,35 +5,42 @@ import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.example.audit.dto.ActionDto;
+import com.example.audit.dto.AuditMessageDto;
 import com.example.audit.enums.Action;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class UserAuditService {
 
-  @Autowired
-  private CqlSession session;
+    @Autowired
+    private CqlSession session;
 
-  private PreparedStatement insertAuditPreparedStmt;
-  private PreparedStatement selectAuditPreparedStmt;
+    @Value("${cassandra.keyspace}")
+    private String keyspace;
 
-  @PostConstruct
-  private void prepareStatements() {
-    insertAuditPreparedStmt = session.prepare(
-    "INSERT INTO my_keyspace.user_audit (user_id, event_time, event_type, event_details) " +
-        "VALUES (?, ?, ?, ?)"
-    );
-    selectAuditPreparedStmt = session.prepare(
-    "SELECT * FROM my_keyspace.user_audit WHERE user_id = ? ORDER BY event_time DESC");
-  }
+    @Value("${cassandra.table}")
+    private String table;
 
-  public void insertUserAction(ActionDto action) {
+    private PreparedStatement insertAuditPreparedStmt;
+    private PreparedStatement selectAuditPreparedStmt;
+
+    @PostConstruct
+    private void prepareStatements() {
+        insertAuditPreparedStmt = session.prepare(
+            String.format("INSERT INTO %s.%s (user_id, event_time, event_type, event_details) " +
+                "VALUES (?, ?, ?, ?)", keyspace, table)
+        );
+        selectAuditPreparedStmt = session.prepare(
+            String.format("SELECT * FROM %s.%s WHERE user_id = ? ORDER BY event_time DESC", keyspace, table)
+        );
+    }
+
+  public void insertUserAction(AuditMessageDto action) {
     BoundStatement insertAuditBoundStmt = insertAuditPreparedStmt.bind(
         action.getUserId(),
         action.getEventTime(),
@@ -43,9 +50,9 @@ public class UserAuditService {
     session.execute(insertAuditBoundStmt);
   }
 
-  public List<ActionDto> selectUserActions(UUID user_id) {
+  public List<AuditMessageDto> selectUserActions(Long userId) {
     BoundStatement selectAuditBoundStmt = selectAuditPreparedStmt.bind(
-      user_id
+      userId
     );
 
     ResultSet resultSet = session.execute(selectAuditBoundStmt);
@@ -55,9 +62,9 @@ public class UserAuditService {
       .toList();
   }
 
-  private ActionDto mapRowToActionDto(Row row) {
-    return ActionDto.builder()
-      .userId(row.getUuid("user_id"))
+  private AuditMessageDto mapRowToActionDto(Row row) {
+    return AuditMessageDto.builder()
+      .userId(row.getLong("user_id"))
       .eventTime(row.getInstant("event_time"))
       .eventType(Action.valueOf(row.getString("event_type")))
       .eventDetails(row.getString("event_details"))
